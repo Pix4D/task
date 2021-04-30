@@ -1,0 +1,63 @@
+version: '3'
+
+tasks:
+
+  build:
+    desc: Build the Task executable
+    cmds:
+      - go build -o bin/task -v -ldflags="{{.LDFLAGS}}" ./cmd/task
+    vars:
+      FULL_VERSION:
+        sh: git describe --long --dirty --always
+      LDFLAGS: -w -s -X main.version={{.FULL_VERSION}}
+
+
+  #
+  # usage: env RELEASE_TAG=v0.1.0 task release
+  #
+  release:
+    desc: Build a release. All GitHub operations are manual.
+    preconditions:
+      - sh: test -n "$RELEASE_TAG"
+        msg: "error: missing environment variable RELEASE_TAG"
+      - sh: test -z $(git status --porcelain)
+        msg: "error: git dirty"
+      - sh: test -z $(git status --branch --porcelain | grep ahead)
+        msg: "error: git local branch ahead"
+    cmds:
+      # We create the (local) git tag now, after having ran the unit tests and
+      # before building the executables, so that we can embed this information
+      # in the binaries.
+      # To recover: delete local tag: git tag --delete tagname
+      - git tag -a {{.RELEASE_TAG}} -m ''
+      - task: release-linux
+      - task: test
+
+  release-linux:
+    cmds:
+      - go build -o bin/linux/task -v -ldflags="{{.LDFLAGS}}" ./cmd/task
+      - cd bin/linux && zip task-$GOOS-$GOARCH.zip task
+    env:
+      CGO_ENABLED: 0
+      GOOS: linux
+      GOARCH: amd64
+    vars:
+      FULL_VERSION:
+        sh: git describe --long --dirty --always
+      LDFLAGS: -w -s -X main.version={{.FULL_VERSION}}
+
+  sleepit:
+    desc: Builds the sleepit test helper
+    dir: tmp
+    cmds:
+      - go build ../internal/sleepit
+
+  test:
+    cmds:
+      - task: build
+      - task: sleepit
+      # FIXME upstream bug
+      #- go test
+      - go test ./...
+    env:
+      PATH: ./bin:{{.PATH}}
