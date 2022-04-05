@@ -34,7 +34,7 @@ func main() {
 
 func run(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, usage)
 		return 2
 	}
 
@@ -84,7 +84,7 @@ func run(args []string) int {
 		return 0
 
 	default:
-		fmt.Fprintln(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, usage)
 		return 2
 	}
 }
